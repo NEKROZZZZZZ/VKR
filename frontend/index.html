@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Аэроэкспресс — чат-бот</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(145deg, #1e2a3a 0%, #0f1724 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .chat-card {
+            width: 100%;
+            max-width: 600px;
+            height: 85vh;
+            background: white;
+            border-radius: 32px;
+            box-shadow: 0 25px 45px rgba(0,0,0,0.25);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .chat-header {
+            background: #003399;
+            color: white;
+            padding: 18px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .logo { font-size: 28px; }
+        .title { font-weight: 700; font-size: 20px; }
+        .status {
+            margin-left: auto;
+            background: rgba(255,255,255,0.2);
+            padding: 5px 12px;
+            border-radius: 40px;
+            font-size: 13px;
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .message {
+            display: flex;
+            gap: 10px;
+            animation: fadeIn 0.2s ease;
+        }
+        .message.user { flex-direction: row-reverse; }
+        .avatar {
+            width: 36px;
+            height: 36px;
+            background: #e2e8f0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+        .message.user .avatar { background: #003399; color: white; }
+        .bubble {
+            max-width: 70%;
+            padding: 10px 16px;
+            border-radius: 20px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        .message.user .bubble { background: #003399; color: white; border: none; }
+        .time { font-size: 10px; margin-top: 5px; opacity: 0.6; }
+        .typing {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: #f1f5f9;
+            border-radius: 30px;
+            width: fit-content;
+            font-size: 13px;
+        }
+        .dot {
+            width: 7px;
+            height: 7px;
+            background: #94a3b8;
+            border-radius: 50%;
+            animation: pulse 1.2s infinite;
+        }
+        @keyframes pulse {
+            0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+            30% { opacity: 1; transform: translateY(-4px); }
+        }
+        .input-area {
+            background: white;
+            border-top: 1px solid #e2e8f0;
+            padding: 16px 20px;
+        }
+        .input-wrapper {
+            display: flex;
+            gap: 12px;
+            background: #f1f5f9;
+            border-radius: 40px;
+            padding: 6px 12px;
+            align-items: flex-end;
+        }
+        textarea {
+            flex: 1;
+            background: none;
+            border: none;
+            resize: none;
+            font-family: inherit;
+            font-size: 14px;
+            padding: 10px 0;
+            outline: none;
+            max-height: 100px;
+        }
+        button {
+            background: #003399;
+            border: none;
+            color: white;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            transition: 0.2s;
+        }
+        button:hover { background: #ff8c00; }
+        .quick-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+            justify-content: center;
+        }
+        .quick-btn {
+            background: #f1f5f9;
+            color: #1e293b;
+            width: auto;
+            height: auto;
+            padding: 6px 14px;
+            border-radius: 40px;
+            font-size: 12px;
+            font-weight: 500;
+            border: none;
+        }
+        .quick-btn:hover { background: #e2e8f0; transform: none; }
+        .escalate-btn {
+            width: 100%;
+            border-radius: 40px;
+            background: white;
+            border: 1px solid #cbd5e1;
+            color: #475569;
+            margin-top: 12px;
+            font-size: 13px;
+        }
+        .escalate-btn:hover {
+            background: #fee2e2;
+            border-color: #dc2626;
+            color: #dc2626;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+<div class="chat-card">
+    <div class="chat-header">
+        <div class="logo">🚆</div>
+        <div class="title">Аэроэкспресс</div>
+        <div class="status">⚡ онлайн</div>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+        <div class="message bot">
+            <div class="avatar">🤖</div>
+            <div class="bubble">
+                Здравствуйте! Я виртуальный помощник «Аэроэкспресс».<br>Чем могу помочь?
+                <div class="time">сейчас</div>
+            </div>
+        </div>
+    </div>
+    <div class="input-area">
+        <div class="input-wrapper">
+            <textarea id="messageInput" rows="1" placeholder="Напишите ваш вопрос..." maxlength="2000"></textarea>
+            <button id="sendBtn">➤</button>
+        </div>
+        <div class="quick-buttons" id="quickButtons"></div>
+        <button id="escalateBtn" class="escalate-btn">👨‍💼 Связаться с оператором</button>
+    </div>
+</div>
+
+<script>
+    const API_BASE = 'http://localhost:8000';
+    let sessionId = localStorage.getItem('chat_session_id');
+    if (!sessionId) {
+        sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8);
+        localStorage.setItem('chat_session_id', sessionId);
+    }
+
+    const quickQuestions = [
+        "Расписание до Шереметьево",
+        "Расписание до Домодедово",
+        "Сколько стоит билет?",
+        "Как вернуть билет?",
+        "Правила провоза багажа"
+    ];
+
+    const quickContainer = document.getElementById('quickButtons');
+    quickQuestions.forEach(q => {
+        const btn = document.createElement('button');
+        btn.textContent = q;
+        btn.className = 'quick-btn';
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            sendMessage(q);
+        });
+        quickContainer.appendChild(btn);
+    });
+
+    let loading = false;
+    const messagesDiv = document.getElementById('chatMessages');
+    const inputEl = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const escalateBtn = document.getElementById('escalateBtn');
+
+    function escapeHtml(str) {
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    function addMessage(role, text) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${role}`;
+        const avatar = role === 'bot' ? '🤖' : '👤';
+        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        messageDiv.innerHTML = `
+            <div class="avatar">${avatar}</div>
+            <div class="bubble">
+                ${escapeHtml(text)}
+                <div class="time">${time}</div>
+            </div>
+        `;
+        messagesDiv.appendChild(messageDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    function showTyping(show) {
+        const existing = document.querySelector('.typing');
+        if (existing) existing.remove();
+        if (!show) return;
+        const typingDiv = document.createElement('div');
+        typingDiv.className = 'typing';
+        typingDiv.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div><span style="margin-left:6px">Ассистент печатает...</span>';
+        messagesDiv.appendChild(typingDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    async function sendMessage(message) {
+        if (loading) return;
+        if (!message.trim()) return;
+        loading = true;
+        sendBtn.disabled = true;
+        const originalMsg = message;
+        inputEl.value = '';
+        addMessage('user', originalMsg);
+        showTyping(true);
+        try {
+            const resp = await fetch(`${API_BASE}/api/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: sessionId, message: originalMsg })
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            showTyping(false);
+            addMessage('bot', data.response);
+        } catch (err) {
+            showTyping(false);
+            addMessage('bot', '⚠️ Ошибка соединения с сервером. Убедитесь, что бэкенд запущен.');
+            console.error(err);
+        } finally {
+            loading = false;
+            sendBtn.disabled = false;
+            inputEl.focus();
+        }
+    }
+
+    async function escalate() {
+        if (loading) return;
+        loading = true;
+        addMessage('user', '👨‍💼 Связаться с оператором');
+        showTyping(true);
+        try {
+            const resp = await fetch(`${API_BASE}/api/operator/escalate`, { method: 'POST' });
+            const data = await resp.json();
+            showTyping(false);
+            addMessage('bot', data.message || 'Оператор скоро подключится.');
+        } catch (e) {
+            showTyping(false);
+            addMessage('bot', 'Не удалось соединиться с оператором. Позвоните в контакт-центр.');
+        } finally {
+            loading = false;
+        }
+    }
+
+    sendBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        sendMessage(inputEl.value);
+    });
+
+    inputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            sendMessage(inputEl.value);
+        }
+    });
+
+    escalateBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        escalate();
+    });
+
+    // Дополнительная защита от любых форм
+    document.querySelectorAll('form').forEach(form => {
+        form.addEventListener('submit', (e) => e.preventDefault());
+    });
+
+    inputEl.focus();
+</script>
+</body>
+</html>
