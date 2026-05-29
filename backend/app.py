@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 import uvicorn
 
 from database import init_db, save_message
@@ -15,11 +15,11 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-class ChatRequest(BaseModel):
+class ChatReq(BaseModel):
     session_id: str = ""
-    message: str = Field(..., min_length=1)
+    message: str
 
-class ChatResponse(BaseModel):
+class ChatResp(BaseModel):
     intent: str
     confidence: float
     response: str
@@ -30,22 +30,22 @@ class ChatResponse(BaseModel):
 def startup():
     init_db()
 
-@app.post("/api/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
-    session_id = request.session_id.strip()
-    if not session_id:
-        session_id = str(uuid.uuid4())
-    # сохраняем вопрос
-    save_message(session_id, 'user', request.message)
-    # ответ бота
-    result = chatbot.process_message(request.message, session_id)
-    # сохраняем ответ
-    save_message(session_id, 'bot', result['response'], result['intent'], result['confidence'])
-    return ChatResponse(
+@app.post("/api/chat", response_model=ChatResp)
+async def chat(req: ChatReq):
+    sid = req.session_id.strip()
+    if not sid:
+        sid = str(uuid.uuid4())
+    # сохраняем сообщение пользователя
+    save_message(sid, 'user', req.message)
+    # получаем ответ бота
+    result = chatbot.process_message(req.message, sid)
+    # сохраняем ответ бота
+    save_message(sid, 'bot', result['response'], result['intent'], result['confidence'])
+    return ChatResp(
         intent=result['intent'],
         confidence=result['confidence'],
         response=result['response'],
-        session_id=session_id,
+        session_id=sid,
         timestamp=datetime.now().isoformat()
     )
 
