@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Админ-панель – обращения к оператору</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui; background: #e2e8f0; height: 100vh; display: flex; }
+        .sessions-panel { width: 320px; background: #1e293b; color: white; display: flex; flex-direction: column; }
+        .sessions-header { padding: 20px; background: #0f172a; font-weight: bold; border-bottom: 1px solid #334155; }
+        .sessions-list { flex: 1; overflow-y: auto; }
+        .session-item { padding: 12px 20px; border-bottom: 1px solid #334155; cursor: pointer; }
+        .session-item:hover { background: #334155; }
+        .session-item.active { background: #003399; }
+        .session-key { font-size: 12px; font-family: monospace; word-break: break-all; }
+        .session-time { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+        .chat-panel { flex: 1; display: flex; flex-direction: column; background: #f8fafc; }
+        .chat-header { background: white; padding: 16px 24px; border-bottom: 1px solid #e2e8f0; font-weight: 600; }
+        .messages-area { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+        .message { display: flex; gap: 10px; max-width: 80%; }
+        .message.user { align-self: flex-end; flex-direction: row-reverse; }
+        .message.bot { align-self: flex-start; }
+        .message.operator { align-self: flex-start; }
+        .avatar { width: 32px; height: 32px; background: #cbd5e1; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+        .message.user .avatar { background: #003399; color: white; }
+        .message.bot .avatar { background: #475569; color: white; }
+        .message.operator .avatar { background: #ff8c00; color: white; }
+        .bubble { background: white; padding: 10px 14px; border-radius: 18px; border: 1px solid #e2e8f0; font-size: 14px; }
+        .message.user .bubble { background: #003399; color: white; border: none; }
+        .message.operator .bubble { background: #fff3e0; border-color: #ff8c00; }
+        .time { font-size: 10px; margin-top: 4px; opacity: 0.6; }
+        .input-area { background: white; border-top: 1px solid #e2e8f0; padding: 16px 20px; display: flex; gap: 12px; }
+        .input-area input { flex: 1; padding: 10px 16px; border: 1px solid #cbd5e1; border-radius: 40px; outline: none; }
+        .input-area button { background: #003399; color: white; border: none; border-radius: 40px; padding: 0 20px; cursor: pointer; }
+        .input-area button:hover { background: #ff8c00; }
+        .empty-state { text-align: center; color: #64748b; padding: 40px; }
+    </style>
+</head>
+<body>
+<div class="sessions-panel">
+    <div class="sessions-header">🆘 Обращения к оператору</div>
+    <div class="sessions-list" id="sessionsList"><div class="empty-state">Загрузка...</div></div>
+</div>
+<div class="chat-panel">
+    <div class="chat-header" id="chatHeader">Выберите обращение</div>
+    <div class="messages-area" id="messagesArea"><div class="empty-state">👈 Выберите сессию слева</div></div>
+    <div class="input-area" id="inputArea" style="display: none;">
+        <input type="text" id="replyInput" placeholder="Ответ оператора...">
+        <button id="sendReplyBtn">Отправить</button>
+    </div>
+</div>
+<script>
+    const API_BASE = 'http://localhost:8000';
+    let currentSession = null;
+    let refreshInterval = null;
+    let templateSentForSession = {}; // чтобы не дублировать шаблон
+
+    async function loadSessions() {
+        try {
+            const res = await fetch(`${API_BASE}/api/admin/escalated_sessions`);
+            const sessions = await res.json();
+            const container = document.getElementById('sessionsList');
+            if (!sessions.length) {
+                container.innerHTML = '<div class="empty-state">Нет обращений к оператору</div>';
+                return;
+            }
+            container.innerHTML = sessions.map(s => `
+                <div class="session-item" data-session="${s.session_key}">
+                    <div class="session-key">${s.session_key}</div>
+                    <div class="session-time">${s.last_activity || 'недавно'}</div>
+                </div>
+            `).join('');
+            document.querySelectorAll('.session-item').forEach(el => {
+                el.addEventListener('click', () => {
+                    document.querySelectorAll('.session-item').forEach(i => i.classList.remove('active'));
+                    el.classList.add('active');
+                    const key = el.getAttribute('data-session');
+                    selectSession(key);
+                });
+            });
+        } catch(e) { console.error(e); }
+    }
+
+    async function selectSession(sessionKey) {
+        if (currentSession === sessionKey) return;
+        currentSession = sessionKey;
+        document.getElementById('chatHeader').innerHTML = `💬 Диалог с пользователем: ${sessionKey}`;
+        document.getElementById('inputArea').style.display = 'flex';
+        if (refreshInterval) clearInterval(refreshInterval);
+        // Перед загрузкой сообщений проверим, нужно ли отправить шаблон оператора
+        await sendTemplateIfNeeded(sessionKey);
+        loadMessages();
+        refreshInterval = setInterval(loadMessages, 3000);
+    }
+
+    async function sendTemplateIfNeeded(sessionKey) {
+        // Если шаблон уже отправлен для этой сессии, не повторяем
+        if (templateSentForSession[sessionKey]) return;
+        // Загружаем сообщения, чтобы проверить, есть ли уже ответ оператора
+        const res = await fetch(`${API_BASE}/api/admin/messages/${sessionKey}?limit=50`);
+        const data = await res.json();
+        const messages = data.messages || [];
+        const hasOperatorReply = messages.some(m => m.role === 'operator');
+        if (!hasOperatorReply) {
+            // Отправляем шаблон
+            await fetch(`${API_BASE}/api/admin/reply?session_key=${encodeURIComponent(sessionKey)}&message=${encodeURIComponent("Здравствуйте! Какой у вас вопрос?")}`, { method: 'POST' });
+            templateSentForSession[sessionKey] = true;
+        }
+    }
+
+    async function loadMessages() {
+        if (!currentSession) return;
+        try {
+            const res = await fetch(`${API_BASE}/api/admin/messages/${currentSession}?limit=200`);
+            const data = await res.json();
+            const messages = data.messages || [];
+            const container = document.getElementById('messagesArea');
+            container.innerHTML = '';
+            if (messages.length === 0) {
+                container.innerHTML = '<div class="empty-state">Нет сообщений</div>';
+                return;
+            }
+            messages.forEach(m => {
+                let avatar = '💬';
+                if (m.role === 'user') avatar = '👤';
+                else if (m.role === 'bot') avatar = '🤖';
+                else if (m.role === 'operator') avatar = '👨‍💼';
+                const div = document.createElement('div');
+                div.className = `message ${m.role}`;
+                div.innerHTML = `
+                    <div class="avatar">${avatar}</div>
+                    <div class="bubble">
+                        ${escapeHtml(m.text)}
+                        <div class="time">${m.timestamp || ''}</div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+            container.scrollTop = container.scrollHeight;
+        } catch(e) { console.error(e); }
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'})[m]);
+    }
+
+    async function sendReply() {
+        const input = document.getElementById('replyInput');
+        const msg = input.value.trim();
+        if (!msg || !currentSession) return;
+        try {
+            await fetch(`${API_BASE}/api/admin/reply?session_key=${encodeURIComponent(currentSession)}&message=${encodeURIComponent(msg)}`, { method: 'POST' });
+            input.value = '';
+            loadMessages();
+            loadSessions();
+        } catch(e) { alert('Ошибка отправки'); }
+    }
+
+    document.getElementById('sendReplyBtn').addEventListener('click', sendReply);
+    document.getElementById('replyInput').addEventListener('keypress', e => { if (e.key === 'Enter') sendReply(); });
+    loadSessions();
+    setInterval(loadSessions, 10000);
+</script>
+</body>
+</html>
