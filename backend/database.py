@@ -41,6 +41,19 @@ def init_db():
                 status TEXT DEFAULT 'active'
             )
         ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS email_queue (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sender TEXT,
+                subject TEXT,
+                body_text TEXT,
+                predicted_intent TEXT,
+                confidence REAL,
+                target_department TEXT,
+                status TEXT DEFAULT 'new',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
     print("✅ База данных готова")
 
 def save_message(session_key: str, role: str, text: str, intent: str = None, confidence: float = None):
@@ -68,15 +81,22 @@ def get_escalated_sessions(limit=50):
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT DISTINCT m.session_key, MAX(m.timestamp) as last_activity
-            FROM messages m
-            WHERE m.role = 'user' AND m.intent = 'operator'
-            GROUP BY m.session_key
+            SELECT DISTINCT session_key, MAX(timestamp) as last_activity
+            FROM messages
+            WHERE role = 'user' AND intent = 'operator'
+            GROUP BY session_key
             ORDER BY last_activity DESC
             LIMIT ?
         ''', (limit,))
         rows = cursor.fetchall()
         return [{'session_key': r[0], 'last_activity': r[1]} for r in rows if r[0] is not None]
+
+def has_operator_replied(session_key: str) -> bool:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT COUNT(*) FROM messages WHERE session_key = ? AND role = "operator"', (session_key,))
+        count = cursor.fetchone()[0]
+        return count > 0
 
 def get_all_messages(limit=1000):
     with get_connection() as conn:
@@ -88,14 +108,6 @@ def get_all_messages(limit=1000):
             LIMIT ?
         ''', (limit,))
         return cursor.fetchall()
-
-def add_ticket(ticket_number, passenger_name, email, phone, route, date, departure_time, status='active'):
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT OR REPLACE INTO tickets (ticket_number, passenger_name, email, phone, route, date, departure_time, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (ticket_number, passenger_name, email, phone, route, date, departure_time, status))
 
 def find_tickets_by_email(email):
     with get_connection() as conn:
@@ -119,13 +131,3 @@ def update_ticket_status(ticket_number, status):
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute('UPDATE tickets SET status = ? WHERE ticket_number = ?', (status, ticket_number))
-
-def has_operator_replied(session_key: str) -> bool:
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT COUNT(*) FROM messages
-            WHERE session_key = ? AND role = 'operator'
-        ''', (session_key,))
-        count = cursor.fetchone()[0]
-        return count > 0

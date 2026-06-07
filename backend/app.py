@@ -40,16 +40,15 @@ def startup():
 @app.post("/api/chat", response_model=ChatResp)
 async def chat(req: ChatReq):
     sid = req.session_id.strip() or str(uuid.uuid4())
-    user_intent = chatbot.detect_intent(req.message) or 'unknown'
+    # Определяем интент пользователя для оператора
+    user_intent = 'operator' if any(w in req.message.lower() for w in ['оператор', 'человек', 'помогите', 'связаться с оператором']) else None
     save_message(sid, 'user', req.message, intent=user_intent, confidence=0.9)
+    # Получаем ответ бота
     result = chatbot.process_message(req.message, sid)
     save_message(sid, 'bot', result['response'], intent=result['intent'], confidence=result['confidence'])
-    
-    # Если пользователь вызвал оператора и оператор ещё не отвечал в этой сессии
+    # Если вызван оператор и ещё не было ответа оператора в этой сессии
     if result['intent'] == 'operator' and not has_operator_replied(sid):
-        template = "Здравствуйте! Я оператор. Чем могу помочь?"
-        save_message(sid, 'operator', template, intent='operator_greeting', confidence=1.0)
-    
+        save_message(sid, 'operator', "Здравствуйте! Я оператор. Чем могу помочь?", intent='operator_greeting')
     return ChatResp(
         intent=result['intent'],
         confidence=result['confidence'],

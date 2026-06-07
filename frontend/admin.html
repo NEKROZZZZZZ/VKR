@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Админ-панель – обращения к оператору</title>
+    <title>Админ-панель</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: system-ui; background: #e2e8f0; height: 100vh; display: flex; }
@@ -53,11 +53,11 @@
     const API_BASE = 'http://localhost:8000';
     let currentSession = null;
     let refreshInterval = null;
-    let templateSentForSession = {}; // чтобы не дублировать шаблон
 
     async function loadSessions() {
         try {
             const res = await fetch(`${API_BASE}/api/admin/escalated_sessions`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const sessions = await res.json();
             const container = document.getElementById('sessionsList');
             if (!sessions.length) {
@@ -78,40 +78,24 @@
                     selectSession(key);
                 });
             });
-        } catch(e) { console.error(e); }
+        } catch(e) { console.error('loadSessions error:', e); }
     }
 
-    async function selectSession(sessionKey) {
+    function selectSession(sessionKey) {
         if (currentSession === sessionKey) return;
         currentSession = sessionKey;
         document.getElementById('chatHeader').innerHTML = `💬 Диалог с пользователем: ${sessionKey}`;
         document.getElementById('inputArea').style.display = 'flex';
         if (refreshInterval) clearInterval(refreshInterval);
-        // Перед загрузкой сообщений проверим, нужно ли отправить шаблон оператора
-        await sendTemplateIfNeeded(sessionKey);
         loadMessages();
         refreshInterval = setInterval(loadMessages, 3000);
-    }
-
-    async function sendTemplateIfNeeded(sessionKey) {
-        // Если шаблон уже отправлен для этой сессии, не повторяем
-        if (templateSentForSession[sessionKey]) return;
-        // Загружаем сообщения, чтобы проверить, есть ли уже ответ оператора
-        const res = await fetch(`${API_BASE}/api/admin/messages/${sessionKey}?limit=50`);
-        const data = await res.json();
-        const messages = data.messages || [];
-        const hasOperatorReply = messages.some(m => m.role === 'operator');
-        if (!hasOperatorReply) {
-            // Отправляем шаблон
-            await fetch(`${API_BASE}/api/admin/reply?session_key=${encodeURIComponent(sessionKey)}&message=${encodeURIComponent("Здравствуйте! Какой у вас вопрос?")}`, { method: 'POST' });
-            templateSentForSession[sessionKey] = true;
-        }
     }
 
     async function loadMessages() {
         if (!currentSession) return;
         try {
             const res = await fetch(`${API_BASE}/api/admin/messages/${currentSession}?limit=200`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
             const messages = data.messages || [];
             const container = document.getElementById('messagesArea');
@@ -137,10 +121,11 @@
                 container.appendChild(div);
             });
             container.scrollTop = container.scrollHeight;
-        } catch(e) { console.error(e); }
+        } catch(e) { console.error('loadMessages error:', e); }
     }
 
     function escapeHtml(str) {
+        if (!str) return '';
         return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'})[m]);
     }
 
@@ -149,11 +134,12 @@
         const msg = input.value.trim();
         if (!msg || !currentSession) return;
         try {
-            await fetch(`${API_BASE}/api/admin/reply?session_key=${encodeURIComponent(currentSession)}&message=${encodeURIComponent(msg)}`, { method: 'POST' });
+            const res = await fetch(`${API_BASE}/api/admin/reply?session_key=${encodeURIComponent(currentSession)}&message=${encodeURIComponent(msg)}`, { method: 'POST' });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             input.value = '';
-            loadMessages();
+            await loadMessages();
             loadSessions();
-        } catch(e) { alert('Ошибка отправки'); }
+        } catch(e) { alert('Ошибка отправки: ' + e.message); }
     }
 
     document.getElementById('sendReplyBtn').addEventListener('click', sendReply);
