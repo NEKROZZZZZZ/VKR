@@ -2,58 +2,237 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Админ-панель</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ-панель – обращения к оператору</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: system-ui; background: #e2e8f0; height: 100vh; display: flex; }
-        .sessions-panel { width: 320px; background: #1e293b; color: white; display: flex; flex-direction: column; }
-        .sessions-header { padding: 20px; background: #0f172a; font-weight: bold; border-bottom: 1px solid #334155; }
-        .sessions-list { flex: 1; overflow-y: auto; }
-        .session-item { padding: 12px 20px; border-bottom: 1px solid #334155; cursor: pointer; }
-        .session-item:hover { background: #334155; }
-        .session-item.active { background: #003399; }
-        .session-key { font-size: 12px; font-family: monospace; word-break: break-all; }
-        .session-time { font-size: 11px; color: #94a3b8; margin-top: 4px; }
-        .chat-panel { flex: 1; display: flex; flex-direction: column; background: #f8fafc; }
-        .chat-header { background: white; padding: 16px 24px; border-bottom: 1px solid #e2e8f0; font-weight: 600; }
-        .messages-area { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
-        .message { display: flex; gap: 10px; max-width: 80%; }
-        .message.user { align-self: flex-end; flex-direction: row-reverse; }
-        .message.bot { align-self: flex-start; }
-        .message.operator { align-self: flex-start; }
-        .avatar { width: 32px; height: 32px; background: #cbd5e1; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; }
-        .message.user .avatar { background: #003399; color: white; }
-        .message.bot .avatar { background: #475569; color: white; }
-        .message.operator .avatar { background: #ff8c00; color: white; }
-        .bubble { background: white; padding: 10px 14px; border-radius: 18px; border: 1px solid #e2e8f0; font-size: 14px; }
-        .message.user .bubble { background: #003399; color: white; border: none; }
-        .message.operator .bubble { background: #fff3e0; border-color: #ff8c00; }
-        .time { font-size: 10px; margin-top: 4px; opacity: 0.6; }
-        .input-area { background: white; border-top: 1px solid #e2e8f0; padding: 16px 20px; display: flex; gap: 12px; }
-        .input-area input { flex: 1; padding: 10px 16px; border: 1px solid #cbd5e1; border-radius: 40px; outline: none; }
-        .input-area button { background: #003399; color: white; border: none; border-radius: 40px; padding: 0 20px; cursor: pointer; }
-        .input-area button:hover { background: #ff8c00; }
-        .empty-state { text-align: center; color: #64748b; padding: 40px; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            background: #e2e8f0;
+            height: 100vh;
+            display: flex;
+            padding: 20px;
+        }
+        .admin-container {
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 28px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            display: flex;
+            overflow: hidden;
+        }
+        /* Левая панель со списком сессий */
+        .sessions-panel {
+            width: 320px;
+            background: #1e293b;
+            color: white;
+            display: flex;
+            flex-direction: column;
+        }
+        .sessions-header {
+            padding: 20px;
+            background: #0f172a;
+            font-weight: bold;
+            font-size: 18px;
+            border-bottom: 1px solid #334155;
+        }
+        .sessions-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+        .session-item {
+            background: #334155;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .session-item:hover {
+            background: #475569;
+            transform: translateX(4px);
+        }
+        .session-item.active {
+            background: #003399;
+            border-left: 4px solid #ff8c00;
+        }
+        .session-key {
+            font-size: 13px;
+            font-family: monospace;
+            word-break: break-all;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        .session-time {
+            font-size: 11px;
+            color: #94a3b8;
+        }
+        /* Правая панель чата */
+        .chat-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #f8fafc;
+        }
+        .chat-header {
+            background: white;
+            padding: 16px 24px;
+            border-bottom: 1px solid #e2e8f0;
+            font-weight: 600;
+            font-size: 16px;
+            color: #1e293b;
+        }
+        .messages-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .message {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            max-width: 80%;
+            animation: fadeIn 0.2s ease;
+        }
+        .message.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+        .message.bot {
+            align-self: flex-start;
+        }
+        .message.operator {
+            align-self: flex-start;
+        }
+        .avatar {
+            width: 36px;
+            height: 36px;
+            background: #cbd5e1;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+        .message.user .avatar {
+            background: #003399;
+            color: white;
+        }
+        .message.bot .avatar {
+            background: #475569;
+            color: white;
+        }
+        .message.operator .avatar {
+            background: #ff8c00;
+            color: white;
+        }
+        .bubble {
+            background: white;
+            padding: 10px 16px;
+            border-radius: 18px;
+            border: 1px solid #e2e8f0;
+            font-size: 14px;
+            line-height: 1.4;
+            max-width: 100%;
+        }
+        .message.user .bubble {
+            background: #003399;
+            color: white;
+            border: none;
+        }
+        .message.operator .bubble {
+            background: #fff3e0;
+            border-left: 3px solid #ff8c00;
+        }
+        .time {
+            font-size: 10px;
+            margin-top: 5px;
+            opacity: 0.6;
+        }
+        .input-area {
+            background: white;
+            border-top: 1px solid #e2e8f0;
+            padding: 16px 20px;
+            display: flex;
+            gap: 12px;
+        }
+        .input-area input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #cbd5e1;
+            border-radius: 40px;
+            outline: none;
+            font-size: 14px;
+            background: #f1f5f9;
+        }
+        .input-area input:focus {
+            border-color: #003399;
+            background: white;
+        }
+        .input-area button {
+            background: #003399;
+            color: white;
+            border: none;
+            border-radius: 40px;
+            padding: 0 24px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.2s;
+        }
+        .input-area button:hover {
+            background: #ff8c00;
+        }
+        .empty-state {
+            text-align: center;
+            color: #64748b;
+            padding: 40px;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
-<div class="sessions-panel">
-    <div class="sessions-header">🆘 Обращения к оператору</div>
-    <div class="sessions-list" id="sessionsList"><div class="empty-state">Загрузка...</div></div>
-</div>
-<div class="chat-panel">
-    <div class="chat-header" id="chatHeader">Выберите обращение</div>
-    <div class="messages-area" id="messagesArea"><div class="empty-state">👈 Выберите сессию слева</div></div>
-    <div class="input-area" id="inputArea" style="display: none;">
-        <input type="text" id="replyInput" placeholder="Ответ оператора...">
-        <button id="sendReplyBtn">Отправить</button>
+<div class="admin-container">
+    <!-- Левая панель: список сессий -->
+    <div class="sessions-panel">
+        <div class="sessions-header">🆘 Обращения к оператору</div>
+        <div class="sessions-list" id="sessionsList">
+            <div class="empty-state">Загрузка...</div>
+        </div>
+    </div>
+
+    <!-- Правая панель: чат -->
+    <div class="chat-panel">
+        <div class="chat-header" id="chatHeader">Выберите диалог</div>
+        <div class="messages-area" id="messagesArea">
+            <div class="empty-state">👈 Выберите сессию слева</div>
+        </div>
+        <div class="input-area" id="inputArea" style="display: none;">
+            <input type="text" id="replyInput" placeholder="Ответ оператора..." autocomplete="off">
+            <button id="sendReplyBtn">Отправить</button>
+        </div>
     </div>
 </div>
+
 <script>
     const API_BASE = 'http://localhost:8000';
     let currentSession = null;
     let refreshInterval = null;
 
+    // Загрузка списка сессий
     async function loadSessions() {
         try {
             const res = await fetch(`${API_BASE}/api/admin/escalated_sessions`);
@@ -70,6 +249,7 @@
                     <div class="session-time">${s.last_activity || 'недавно'}</div>
                 </div>
             `).join('');
+            // Добавляем обработчики кликов
             document.querySelectorAll('.session-item').forEach(el => {
                 el.addEventListener('click', () => {
                     document.querySelectorAll('.session-item').forEach(i => i.classList.remove('active'));
@@ -78,19 +258,24 @@
                     selectSession(key);
                 });
             });
-        } catch(e) { console.error('loadSessions error:', e); }
+        } catch(e) {
+            console.error('loadSessions error:', e);
+            document.getElementById('sessionsList').innerHTML = '<div class="empty-state">Ошибка загрузки</div>';
+        }
     }
 
+    // Выбор сессии
     function selectSession(sessionKey) {
         if (currentSession === sessionKey) return;
         currentSession = sessionKey;
-        document.getElementById('chatHeader').innerHTML = `💬 Диалог с пользователем: ${sessionKey}`;
+        document.getElementById('chatHeader').innerHTML = `💬 Диалог с пассажиром: ${sessionKey.substring(0, 20)}...`;
         document.getElementById('inputArea').style.display = 'flex';
         if (refreshInterval) clearInterval(refreshInterval);
         loadMessages();
         refreshInterval = setInterval(loadMessages, 3000);
     }
 
+    // Загрузка сообщений выбранной сессии
     async function loadMessages() {
         if (!currentSession) return;
         try {
@@ -105,23 +290,26 @@
                 return;
             }
             messages.forEach(m => {
-                let avatar = '💬';
+                let avatar = '';
                 if (m.role === 'user') avatar = '👤';
                 else if (m.role === 'bot') avatar = '🤖';
                 else if (m.role === 'operator') avatar = '👨‍💼';
-                const div = document.createElement('div');
-                div.className = `message ${m.role}`;
-                div.innerHTML = `
+                else avatar = '💬';
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `message ${m.role}`;
+                msgDiv.innerHTML = `
                     <div class="avatar">${avatar}</div>
                     <div class="bubble">
                         ${escapeHtml(m.text)}
                         <div class="time">${m.timestamp || ''}</div>
                     </div>
                 `;
-                container.appendChild(div);
+                container.appendChild(msgDiv);
             });
             container.scrollTop = container.scrollHeight;
-        } catch(e) { console.error('loadMessages error:', e); }
+        } catch(e) {
+            console.error('loadMessages error:', e);
+        }
     }
 
     function escapeHtml(str) {
@@ -129,6 +317,7 @@
         return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'})[m]);
     }
 
+    // Отправка ответа оператора
     async function sendReply() {
         const input = document.getElementById('replyInput');
         const msg = input.value.trim();
@@ -137,15 +326,22 @@
             const res = await fetch(`${API_BASE}/api/admin/reply?session_key=${encodeURIComponent(currentSession)}&message=${encodeURIComponent(msg)}`, { method: 'POST' });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             input.value = '';
-            await loadMessages();
-            loadSessions();
-        } catch(e) { alert('Ошибка отправки: ' + e.message); }
+            await loadMessages();      // обновить историю
+            loadSessions();            // обновить список (время последней активности)
+        } catch(e) {
+            alert('Ошибка отправки: ' + e.message);
+        }
     }
 
+    // Обработчики событий
     document.getElementById('sendReplyBtn').addEventListener('click', sendReply);
-    document.getElementById('replyInput').addEventListener('keypress', e => { if (e.key === 'Enter') sendReply(); });
+    document.getElementById('replyInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendReply();
+    });
+
+    // Запуск
     loadSessions();
-    setInterval(loadSessions, 10000);
+    setInterval(loadSessions, 10000); // обновлять список каждые 10 секунд
 </script>
 </body>
 </html>

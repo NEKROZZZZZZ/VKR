@@ -290,7 +290,7 @@
             addMessage('bot', data.response);
         } catch (err) {
             showTyping(false);
-            addMessage('bot', 'Ошибка связи с сервером. Запустите бэкенд.');
+            addMessage('bot', '⚠️ Ошибка связи с сервером. Запустите бэкенд.');
             console.error(err);
         } finally {
             loading = false;
@@ -304,6 +304,7 @@
         await sendMessage("Связаться с оператором");
     }
 
+    // Функция обновления истории (добавляет только новые сообщения)
     let lastMessageCount = 0;
     async function refreshHistory() {
         if (!sessionId) return;
@@ -332,6 +333,7 @@
     document.getElementById('escalateBtn').addEventListener('click', (e) => { e.preventDefault(); escalate(); });
     inputEl.focus();
 
+    // Загружаем историю при старте и затем каждые 10 секунд
     refreshHistory();
     setInterval(refreshHistory, 10000);
 </script>
